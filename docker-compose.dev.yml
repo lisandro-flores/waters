@@ -1,0 +1,47 @@
+version: '3.8'
+
+# ────────────────────────────────────────────────
+#  docker compose -f docker-compose.dev.yml up -d
+#  Solo levanta PostgreSQL para desarrollo local.
+#  El backend y el frontend se corren directamente
+#  en la máquina del desarrollador.
+# ────────────────────────────────────────────────
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: aguapotable-dev-db
+    environment:
+      POSTGRES_DB: agua_potable
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # pgAdmin opcional — comentar si no se necesita
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: aguapotable-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@local.dev
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+volumes:
+  postgres_dev_data:
+    driver: local
+  pgadmin_data:
+    driver: local

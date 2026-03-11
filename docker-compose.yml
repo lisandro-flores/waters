@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+
+  # ─────────────── BASE DE DATOS ───────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: aguapotable-db
+    environment:
+      POSTGRES_DB: agua_potable
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────── BACKEND ───────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aguapotable-backend
+    ports:
+      - "8080:8080"
+    environment:
+      DB_USER: postgres
+      DB_PASS: postgres
+      JWT_SECRET: "super-secret-key-para-produccion-minimo-32-chars!!"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/agua_potable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─────────────── FRONTEND ───────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: aguapotable-frontend
+    ports:
+      - "4200:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
