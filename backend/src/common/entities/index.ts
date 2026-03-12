@@ -1,0 +1,10 @@
+export { Comunidad } from './comunidad.entity';
+export { Usuario } from './usuario.entity';
+export { Suscriptor } from './suscriptor.entity';
+export { Medidor } from './medidor.entity';
+export { Tarifa } from './tarifa.entity';
+export { TarifaRango } from './tarifa-rango.entity';
+export { Lectura } from './lectura.entity';
+export { Factura } from './factura.entity';
+export { Pago } from './pago.entity';
+export { Alerta } from './alerta.entity';

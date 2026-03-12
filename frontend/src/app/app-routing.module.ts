@@ -20,9 +20,6 @@ const routes: Routes = [
     loadChildren: () => import('./modules/layout/layout.module').then(m => m.LayoutModule)
   },
 
-  // 403 Acceso denegado
-  { path: '403', loadComponent: () => import('./shared/components/forbidden/forbidden.component').then(c => c.ForbiddenComponent) },
-
   // Catch-all
   { path: '**', redirectTo: 'dashboard' }
 ];

@@ -28,8 +28,10 @@ for arg in "$@"; do
     --no-backend)  START_BACKEND=false ;;
     --stop)
       log "Deteniendo servicios..."
-      docker compose -f "$ROOT_DIR/docker-compose.dev.yml" down
-      pkill -f "spring-boot:run" 2>/dev/null || true
+      docker compose -f "$ROOT_DIR/docker-compose.dev.yml" down 2>/dev/null || \
+        docker-compose -f "$ROOT_DIR/docker-compose.dev.yml" down 2>/dev/null || true
+      pkill -f "nest start" 2>/dev/null || true
+      pkill -f "node.*dist/main" 2>/dev/null || true
       pkill -f "ng serve" 2>/dev/null || true
       ok "Servicios detenidos."
       exit 0
@@ -37,33 +39,7 @@ for arg in "$@"; do
   esac
 done
 
-# ── 1. Verificar Java ─────────────────────────────────────────────────────────
-log "Verificando Java..."
-if ! command -v java &>/dev/null; then
-  err "Java no encontrado. Instalar JDK 21: sudo apt install openjdk-21-jdk"
-  exit 1
-fi
-JAVA_VER=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}' | cut -d'.' -f1)
-ok "Java $JAVA_VER detectado ($(java -version 2>&1 | head -1))"
-
-# ── 2. Verificar/instalar Maven ───────────────────────────────────────────────
-if ! command -v mvn &>/dev/null; then
-  warn "Maven no encontrado. Instalando via apt..."
-  sudo apt-get update -qq && sudo apt-get install -y maven -qq
-  ok "Maven instalado: $(mvn --version | head -1)"
-else
-  ok "Maven: $(mvn --version | head -1)"
-fi
-
-# Generar Maven wrapper si no existe
-if [ ! -f "$BACKEND_DIR/mvnw" ]; then
-  log "Generando Maven wrapper..."
-  cd "$BACKEND_DIR" && mvn -N wrapper:wrapper -q
-  ok "Maven wrapper generado."
-  cd "$ROOT_DIR"
-fi
-
-# ── 3. Verificar Node / npm ───────────────────────────────────────────────────
+# ── 1. Verificar Node / npm ───────────────────────────────────────────────────
 log "Verificando Node.js..."
 if ! command -v node &>/dev/null; then
   err "Node.js no encontrado. Instalar Node 20+: https://nodejs.org"
@@ -71,14 +47,14 @@ if ! command -v node &>/dev/null; then
 fi
 ok "Node $(node --version) / npm $(npm --version)"
 
-# ── 4. Verificar Angular CLI ──────────────────────────────────────────────────
+# ── 2. Verificar Angular CLI ──────────────────────────────────────────────────
 if ! command -v ng &>/dev/null; then
   warn "Angular CLI no encontrado. Instalando globalmente..."
   npm install -g @angular/cli@17 --silent
   ok "Angular CLI instalado: $(ng version 2>/dev/null | grep 'Angular CLI' | head -1)"
 fi
 
-# ── 5. Verificar Docker ───────────────────────────────────────────────────────
+# ── 3. Verificar Docker ───────────────────────────────────────────────────────
 log "Verificando Docker..."
 if ! command -v docker &>/dev/null; then
   err "Docker no encontrado. Instalar Docker Desktop o Docker Engine."
@@ -86,12 +62,13 @@ if ! command -v docker &>/dev/null; then
 fi
 ok "Docker $(docker --version)"
 
-# ── 6. Levantar PostgreSQL con Docker Compose ─────────────────────────────────
-log "Levantando PostgreSQL (docker compose.dev.yml)..."
-docker compose -f "$ROOT_DIR/docker-compose.dev.yml" up -d postgres
+# ── 4. Levantar PostgreSQL con Docker Compose ─────────────────────────────────
+log "Levantando PostgreSQL (docker-compose.dev.yml)..."
+docker compose -f "$ROOT_DIR/docker-compose.dev.yml" up -d postgres 2>/dev/null || \
+  docker-compose -f "$ROOT_DIR/docker-compose.dev.yml" up -d postgres
 ok "PostgreSQL iniciando..."
 
-# ── 7. Esperar a que PostgreSQL esté listo ────────────────────────────────────
+# ── 5. Esperar a que PostgreSQL esté listo ────────────────────────────────────
 log "Esperando a que PostgreSQL esté disponible..."
 RETRIES=20
 until docker exec aguapotable-dev-db pg_isready -U postgres -q 2>/dev/null; do
@@ -104,9 +81,17 @@ until docker exec aguapotable-dev-db pg_isready -U postgres -q 2>/dev/null; do
   echo -n "."
 done
 echo ""
-ok "PostgreSQL listo en localhost:5432"
+ok "PostgreSQL listo en localhost:5433"
 
-# ── 8. Instalar dependencias del frontend ────────────────────────────────────
+# ── 6. Instalar dependencias del backend ──────────────────────────────────────
+if [ ! -d "$BACKEND_DIR/node_modules" ]; then
+  log "Instalando dependencias npm del backend..."
+  cd "$BACKEND_DIR" && npm install --silent
+  ok "Dependencias del backend instaladas."
+  cd "$ROOT_DIR"
+fi
+
+# ── 7. Instalar dependencias del frontend ────────────────────────────────────
 if [ "$START_FRONTEND" = true ] && [ ! -d "$FRONTEND_DIR/node_modules" ]; then
   log "Instalando dependencias npm del frontend..."
   cd "$FRONTEND_DIR" && npm install --silent
@@ -114,16 +99,18 @@ if [ "$START_FRONTEND" = true ] && [ ! -d "$FRONTEND_DIR/node_modules" ]; then
   cd "$ROOT_DIR"
 fi
 
-# ── 9. Iniciar backend ────────────────────────────────────────────────────────
+# ── 8. Iniciar backend ────────────────────────────────────────────────────────
 if [ "$START_BACKEND" = true ]; then
-  log "Iniciando backend Spring Boot (perfil: dev)..."
+  log "Iniciando backend NestJS..."
   cd "$BACKEND_DIR"
-  SPRING_PROFILES_ACTIVE=dev \
+  DB_HOST=localhost \
+  DB_PORT=5433 \
   DB_USER=postgres \
   DB_PASS=postgres \
+  DB_NAME=agua_potable \
   JWT_SECRET="dev-secret-key-para-desarrollo-local-32chars!!" \
-  SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5433/agua_potable" \
-  ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev &
+  PORT=8081 \
+  npm run start:dev &
   BACKEND_PID=$!
   echo "$BACKEND_PID" > /tmp/aguapotable-backend.pid
   ok "Backend iniciado (PID $BACKEND_PID)"
@@ -132,11 +119,13 @@ if [ "$START_BACKEND" = true ]; then
   cd "$ROOT_DIR"
 fi
 
-# ── 10. Iniciar frontend ──────────────────────────────────────────────────────
+# ── 9. Iniciar frontend ──────────────────────────────────────────────────────
 if [ "$START_FRONTEND" = true ]; then
-  log "Esperando que el backend levante (healthcheck)..."
+  log "Esperando que el backend levante..."
   RETRIES=40
-  until curl -sf http://localhost:8081/actuator/health &>/dev/null; do
+  until curl -sf http://localhost:8081/api/v1/auth/login -o /dev/null -w '' 2>/dev/null || \
+        curl -sf http://localhost:8081/swagger-ui.html -o /dev/null 2>/dev/null || \
+        [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8081/swagger-ui.html 2>/dev/null)" != "000" ]; do
     RETRIES=$((RETRIES - 1))
     if [ $RETRIES -le 0 ]; then
       warn "Backend tardó más de lo esperado. Iniciando frontend de todas formas..."

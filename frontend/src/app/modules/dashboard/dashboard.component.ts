@@ -1,292 +1,277 @@
-import { Component, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
+import { Component, OnInit, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
 import { ReporteService } from '../../core/services/reporte.service';
-import { AlertaService } from '../../core/services/alerta.service';
-import { DashboardData, Alerta } from '../../core/models/models';
-import { AuthService } from '../../core/auth/auth.service';
+import { DashboardData } from '../../core/models/models';
+import { Chart, registerables } from 'chart.js';
 
-interface KpiCard {
-  label: string;
-  value: any;
-  icon: string;
-  color: string;
-  route: string;
-  prefix?: string;
-  suffix?: string;
-}
-
-interface QuickAction {
-  label: string;
-  icon: string;
-  route: string;
-  color: string;
-}
+Chart.register(...registerables);
 
 @Component({
   selector: 'app-dashboard',
+  standalone: false,
   template: `
-    <div class="dashboard animate-in">
-      <!-- Header -->
-      <div class="dash-header">
+    <div class="p-6 space-y-6">
+      <!-- Page title -->
+      <div class="flex items-center justify-between">
         <div>
-          <h2 class="page-title">Dashboard</h2>
-          <p class="subtitle">{{ comunidadNombre }} · {{ hoy | date:'MMMM yyyy':'':'es' | titlecase }}</p>
+          <h1 class="text-2xl font-medium text-gray-900">Dashboard</h1>
+          <p class="text-sm text-gray-500 mt-0.5">Resumen ejecutivo — {{currentMonth}}</p>
+        </div>
+        <div class="flex items-center gap-2 bg-sky-50 text-sky-700 rounded-xl px-4 py-2 text-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>
+          <span class="font-medium">Sistema operativo</span>
         </div>
       </div>
 
       <!-- KPI Cards -->
-      <div class="kpi-grid" *ngIf="!loading; else spinner">
-        <mat-card *ngFor="let kpi of kpiCards" class="kpi-card"
-                  [style.border-left-color]="kpi.color"
-                  (click)="router.navigate([kpi.route])">
-          <mat-card-content>
-            <div class="kpi-content">
-              <div class="kpi-info">
-                <span class="kpi-label">{{ kpi.label }}</span>
-                <span class="kpi-value">{{ kpi.prefix }}{{ kpi.value | number:'1.0-0' }}{{ kpi.suffix }}</span>
-              </div>
-              <div class="kpi-icon-wrap" [style.background]="kpi.color + '14'" [style.color]="kpi.color">
-                <mat-icon>{{ kpi.icon }}</mat-icon>
-              </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div *ngFor="let card of statCards" class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-sm text-gray-500">{{card.label}}</p>
+              <p class="text-3xl mt-1 font-bold" [class]="card.textColor">{{card.value}}</p>
+              <p class="text-xs text-gray-400 mt-2">{{card.sub}}</p>
             </div>
-          </mat-card-content>
-        </mat-card>
-      </div>
-
-      <!-- Quick Actions -->
-      <div class="section-label">Acciones rápidas</div>
-      <div class="quick-actions">
-        <button *ngFor="let action of quickActions" mat-stroked-button
-                class="quick-action-btn"
-                [style.--accent]="action.color"
-                (click)="router.navigate([action.route])">
-          <mat-icon>{{ action.icon }}</mat-icon>
-          {{ action.label }}
-        </button>
-      </div>
-
-      <!-- Alertas pendientes -->
-      <div class="section-label" *ngIf="alertas.length > 0">
-        Alertas pendientes
-        <span class="badge-count">{{ alertas.length }}</span>
-      </div>
-      <mat-card class="alertas-card" *ngIf="alertas.length > 0">
-        <mat-card-content class="alertas-content">
-          <div *ngFor="let alerta of alertas; let last = last" class="alerta-row">
-            <div class="alerta-icon-circle" [ngClass]="'severity-' + getSeverity(alerta.tipo)">
-              <mat-icon>{{ getAlertaIcon(alerta.tipo) }}</mat-icon>
+            <div [class]="card.bgLight + ' ' + card.textColor + ' w-12 h-12 rounded-xl flex items-center justify-center'">
+              <span [innerHTML]="card.iconSvg"></span>
             </div>
-            <div class="alerta-body">
-              <span class="alerta-msg">{{ alerta.mensaje }}</span>
-              <span class="alerta-time">{{ alerta.creadoEn | date:'dd/MM/yyyy HH:mm' }}</span>
-            </div>
-            <div class="alerta-actions">
-              <button mat-icon-button matTooltip="Resolver" color="primary"
-                      (click)="resolverAlerta(alerta)">
-                <mat-icon>check_circle</mat-icon>
-              </button>
-              <button mat-icon-button matTooltip="Descartar"
-                      (click)="descartarAlerta(alerta)">
-                <mat-icon>close</mat-icon>
-              </button>
-            </div>
-            <mat-divider *ngIf="!last"></mat-divider>
           </div>
-        </mat-card-content>
-      </mat-card>
+        </div>
+      </div>
 
-      <!-- Empty alertas -->
-      <mat-card class="alertas-card no-alertas" *ngIf="!loading && alertas.length === 0">
-        <mat-card-content>
-          <div class="empty-state">
-            <mat-icon>verified</mat-icon>
-            <p>Sin alertas pendientes. ¡Todo en orden!</p>
+      <!-- Charts row -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Consumption Area Chart -->
+        <div class="lg:col-span-2 bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-medium text-gray-900">Consumo Mensual</h3>
+              <p class="text-sm text-gray-400">Últimos 6 meses (m³)</p>
+            </div>
+            <span class="text-xs bg-sky-50 text-sky-600 px-3 py-1 rounded-full font-medium">m³</span>
           </div>
-        </mat-card-content>
-      </mat-card>
+          <canvas #consumptionChart height="220"></canvas>
+        </div>
+
+        <!-- Pie chart -->
+        <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+          <div class="mb-4">
+            <h3 class="text-lg font-medium text-gray-900">Estado de Facturas</h3>
+            <p class="text-sm text-gray-400">Período actual</p>
+          </div>
+          <canvas #invoiceChart height="160"></canvas>
+          <div class="space-y-2 mt-4">
+            <div *ngFor="let d of pieData" class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded-full" [style.backgroundColor]="d.color"></div>
+                <span class="text-sm text-gray-600">{{d.name}}</span>
+              </div>
+              <span class="text-sm font-semibold" [style.color]="d.color">{{d.value}}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Revenue Bar Chart -->
+      <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-lg font-medium text-gray-900">Facturación vs Recaudación</h3>
+            <p class="text-sm text-gray-400">Últimos 6 meses (USD)</p>
+          </div>
+        </div>
+        <canvas #revenueChart height="200"></canvas>
+      </div>
+
+      <!-- Bottom row -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Quick stats -->
+        <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+          <h3 class="text-lg font-medium text-gray-900 mb-4">Resumen Rápido</h3>
+          <div class="space-y-3">
+            <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+              <span class="text-sm text-gray-600">Total suscriptores</span>
+              <span class="text-sm font-semibold text-gray-900">{{data?.totalSuscriptores || 0}}</span>
+            </div>
+            <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+              <span class="text-sm text-gray-600">Facturado mes actual</span>
+              <span class="text-sm font-semibold text-indigo-600">\${{data?.facturadoMesActual || 0}}</span>
+            </div>
+            <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+              <span class="text-sm text-gray-600">Recaudado mes actual</span>
+              <span class="text-sm font-semibold text-emerald-600">\${{data?.recaudadoMesActual || 0}}</span>
+            </div>
+            <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+              <span class="text-sm text-gray-600">Cuentas pendientes</span>
+              <span class="text-sm font-semibold text-amber-600">{{data?.cuentasPendientes || 0}}</span>
+            </div>
+            <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+              <span class="text-sm text-gray-600">Cuentas morosas</span>
+              <span class="text-sm font-semibold text-red-600">{{data?.cuentasMorosas || 0}}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent activity -->
+        <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-medium text-gray-900">Actividad Reciente</h3>
+          </div>
+          <div class="space-y-3" *ngIf="!loading">
+            <div class="flex items-start gap-3 p-3 border-l-4 border-l-sky-500 bg-sky-50 rounded-r-xl">
+              <div>
+                <p class="text-sm text-gray-800 font-medium">Sistema iniciado correctamente</p>
+                <p class="text-xs text-gray-400 mt-1">Dashboard cargado con datos del servidor</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-3 p-3 border-l-4 border-l-emerald-500 bg-emerald-50 rounded-r-xl">
+              <div>
+                <p class="text-sm text-gray-800 font-medium">Datos sincronizados</p>
+                <p class="text-xs text-gray-400 mt-1">Información actualizada en tiempo real</p>
+              </div>
+            </div>
+          </div>
+          <div *ngIf="loading" class="space-y-3">
+            <div class="skeleton h-16 w-full rounded-xl"></div>
+            <div class="skeleton h-16 w-full rounded-xl"></div>
+          </div>
+        </div>
+      </div>
     </div>
-
-    <ng-template #spinner>
-      <div class="spinner-center">
-        <mat-spinner diameter="48"></mat-spinner>
-      </div>
-    </ng-template>
-  `,
-  styles: [`
-    .dashboard { max-width: 1100px; }
-    .dash-header { margin-bottom: 24px; }
-    .page-title { margin: 0 0 4px; font-size: 24px; font-weight: 700; color: #1a2a3a; }
-    .subtitle { color: #78909c; margin: 0; font-size: 14px; }
-
-    /* ---- KPI Grid ---- */
-    .kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-      gap: 16px; margin-bottom: 28px;
-    }
-    .kpi-card {
-      cursor: pointer;
-      border-left: 4px solid transparent;
-      transition: transform 200ms ease, box-shadow 200ms ease;
-    }
-    .kpi-card:hover {
-      transform: translateY(-3px);
-      box-shadow: var(--shadow-lg, 0 8px 24px rgba(0,0,0,0.12));
-    }
-    .kpi-content { display: flex; justify-content: space-between; align-items: center; }
-    .kpi-info { display: flex; flex-direction: column; gap: 2px; }
-    .kpi-label { font-size: 12px; color: #90a4ae; font-weight: 500; text-transform: uppercase; letter-spacing: 0.4px; }
-    .kpi-value { font-size: 28px; font-weight: 800; color: #263238; line-height: 1.1; }
-    .kpi-icon-wrap {
-      width: 48px; height: 48px; border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-    }
-    .kpi-icon-wrap mat-icon { font-size: 26px; width: 26px; height: 26px; }
-
-    /* ---- Section labels ---- */
-    .section-label {
-      font-size: 13px; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.5px; color: #607d8b;
-      margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
-    }
-    .badge-count {
-      background: #ff5252; color: white; font-size: 11px; font-weight: 700;
-      padding: 1px 7px; border-radius: 10px; line-height: 1.4;
-    }
-
-    /* ---- Quick Actions ---- */
-    .quick-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 28px; }
-    .quick-action-btn {
-      display: flex; align-items: center; gap: 6px;
-      border-radius: 8px !important;
-      font-size: 13px; font-weight: 500;
-      transition: background 150ms ease, color 150ms ease;
-    }
-    .quick-action-btn:hover {
-      background: var(--accent, #0078a9);
-      color: white;
-    }
-    .quick-action-btn mat-icon { font-size: 18px; width: 18px; height: 18px; }
-
-    /* ---- Alertas ---- */
-    .alertas-card { margin-bottom: 24px; }
-    .alertas-content { padding: 8px 0 !important; }
-    .alerta-row {
-      display: flex; align-items: center; gap: 14px;
-      padding: 10px 16px; transition: background 150ms ease;
-    }
-    .alerta-row:hover { background: #fafbfc; }
-    .alerta-icon-circle {
-      width: 38px; height: 38px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-    }
-    .alerta-icon-circle mat-icon { font-size: 20px; width: 20px; height: 20px; }
-    .severity-high   { background: #ffebee; color: #d32f2f; }
-    .severity-medium { background: #fff3e0; color: #ef6c00; }
-    .severity-low    { background: #e3f2fd; color: #1976d2; }
-    .alerta-body { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-    .alerta-msg { font-size: 14px; color: #37474f; }
-    .alerta-time { font-size: 12px; color: #b0bec5; }
-    .alerta-actions { display: flex; gap: 2px; flex-shrink: 0; }
-    .no-alertas .empty-state mat-icon { color: #43a047; }
-    .spinner-center { display: flex; justify-content: center; padding: 48px; }
-
-    @media (max-width: 768px) {
-      .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-      .quick-actions { gap: 8px; }
-      .alerta-actions { flex-direction: column; }
-    }
-    @media (max-width: 480px) {
-      .kpi-grid { grid-template-columns: 1fr; }
-    }
-  `]
+  `
 })
-export class DashboardComponent implements OnInit {
-  data: DashboardData | null = null;
-  alertas: Alerta[] = [];
-  loading = true;
-  hoy = new Date();
-  comunidadNombre = '';
-  kpiCards: KpiCard[] = [];
+export class DashboardComponent implements OnInit, AfterViewInit {
+  @ViewChild('consumptionChart') consumptionRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('invoiceChart') invoiceRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('revenueChart') revenueRef!: ElementRef<HTMLCanvasElement>;
 
-  quickActions: QuickAction[] = [
-    { label: 'Registrar Lectura',  icon: 'edit_note',    route: '/lecturas',      color: '#0288d1' },
-    { label: 'Nuevo Suscriptor',   icon: 'person_add',   route: '/suscriptores',  color: '#388e3c' },
-    { label: 'Ver Facturación',    icon: 'receipt_long',  route: '/facturacion',   color: '#7b1fa2' },
-    { label: 'Registrar Pago',    icon: 'payments',      route: '/pagos',         color: '#ef6c00' },
+  data: DashboardData | null = null;
+  loading = true;
+  currentMonth = '';
+
+  pieData = [
+    { name: 'Pagadas', value: 10, color: '#10b981' },
+    { name: 'Pendientes', value: 8, color: '#f59e0b' },
+    { name: 'Vencidas', value: 2, color: '#ef4444' },
   ];
 
-  constructor(
-    private reporteService: ReporteService,
-    private alertaService: AlertaService,
-    private authService: AuthService,
-    public router: Router
-  ) {}
+  statCards = [
+    { label: 'Total Suscriptores', value: '0', sub: 'Registrados en el sistema', textColor: 'text-sky-600', bgLight: 'bg-sky-50',
+      iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' },
+    { label: 'Facturado Mes', value: '$0', sub: 'Mes actual', textColor: 'text-indigo-600', bgLight: 'bg-indigo-50',
+      iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>' },
+    { label: 'Recaudado Mes', value: '$0', sub: 'Cobros realizados', textColor: 'text-emerald-600', bgLight: 'bg-emerald-50',
+      iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>' },
+    { label: 'Cuentas Morosas', value: '0', sub: 'Requieren atención', textColor: 'text-red-600', bgLight: 'bg-red-50',
+      iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>' },
+  ];
 
-  ngOnInit(): void {
-    this.comunidadNombre = this.authService.getCurrentUser()?.comunidadNombre || '';
-    this.cargarDatos();
+  monthlyLabels = ['Oct', 'Nov', 'Dic', 'Ene', 'Feb', 'Mar'];
+  monthlyConsumption = [4200, 3800, 4500, 4100, 4800, 5200];
+  monthlyInvoiced = [12000, 11500, 13000, 12500, 14000, 15000];
+  monthlyPaid = [10000, 10500, 11000, 11500, 12000, 13000];
+
+  constructor(private reporteService: ReporteService) {
+    const now = new Date();
+    this.currentMonth = now.toLocaleDateString('es', { month: 'long', year: 'numeric' });
+    this.currentMonth = this.currentMonth.charAt(0).toUpperCase() + this.currentMonth.slice(1);
   }
 
-  cargarDatos(): void {
+  ngOnInit() {
     this.reporteService.getDashboard().subscribe({
-      next: (data) => {
-        this.data = data;
-        this.buildKpiCards(data);
+      next: (d) => {
+        this.data = d;
+        this.statCards[0].value = d.totalSuscriptores.toLocaleString();
+        this.statCards[1].value = `$${d.facturadoMesActual.toLocaleString()}`;
+        this.statCards[2].value = `$${d.recaudadoMesActual.toLocaleString()}`;
+        this.statCards[3].value = d.cuentasMorosas.toLocaleString();
         this.loading = false;
       },
-      error: () => { this.loading = false; }
-    });
-
-    this.reporteService.getAlertasPendientes().subscribe({
-      next: (alertas) => this.alertas = alertas.slice(0, 5),
-      error: () => {}
+      error: () => {
+        this.loading = false;
+      }
     });
   }
 
-  buildKpiCards(data: DashboardData): void {
-    this.kpiCards = [
-      { label: 'Suscriptores Activos', value: data.totalSuscriptores,    icon: 'people',       color: '#1976d2', route: '/suscriptores' },
-      { label: 'Facturado (mes)',       value: data.facturadoMesActual,   icon: 'receipt_long', color: '#388e3c', route: '/facturacion', prefix: '$' },
-      { label: 'Recaudado (mes)',       value: data.recaudadoMesActual,   icon: 'payments',     color: '#0288d1', route: '/pagos', prefix: '$' },
-      { label: 'Ctas. Pendientes',      value: data.cuentasPendientes,    icon: 'pending',      color: '#f57c00', route: '/facturacion' },
-      { label: 'Ctas. Morosas',         value: data.cuentasMorosas,       icon: 'warning',      color: '#d32f2f', route: '/reportes' }
-    ];
+  ngAfterViewInit() {
+    setTimeout(() => {
+      this.createConsumptionChart();
+      this.createInvoiceChart();
+      this.createRevenueChart();
+    }, 100);
   }
 
-  resolverAlerta(alerta: Alerta): void {
-    this.alertaService.resolver(alerta.id!).subscribe({
-      next: () => this.alertas = this.alertas.filter(a => a !== alerta),
-      error: () => {}
+  private createConsumptionChart() {
+    if (!this.consumptionRef) return;
+    new Chart(this.consumptionRef.nativeElement, {
+      type: 'line',
+      data: {
+        labels: this.monthlyLabels,
+        datasets: [{
+          label: 'Consumo (m³)',
+          data: this.monthlyConsumption,
+          borderColor: '#0ea5e9',
+          backgroundColor: 'rgba(14, 165, 233, 0.1)',
+          fill: true,
+          tension: 0.4,
+          borderWidth: 2.5,
+          pointRadius: 4,
+          pointBackgroundColor: '#0ea5e9',
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 12 } } },
+          y: { grid: { color: '#f1f5f9' }, ticks: { color: '#94a3b8', font: { size: 12 } } }
+        }
+      }
     });
   }
 
-  descartarAlerta(alerta: Alerta): void {
-    this.alertaService.descartar(alerta.id!).subscribe({
-      next: () => this.alertas = this.alertas.filter(a => a !== alerta),
-      error: () => {}
+  private createInvoiceChart() {
+    if (!this.invoiceRef) return;
+    new Chart(this.invoiceRef.nativeElement, {
+      type: 'doughnut',
+      data: {
+        labels: this.pieData.map(d => d.name),
+        datasets: [{
+          data: this.pieData.map(d => d.value),
+          backgroundColor: this.pieData.map(d => d.color),
+          borderWidth: 0,
+          spacing: 3,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '60%',
+        plugins: { legend: { display: false } }
+      }
     });
   }
 
-  getSeverity(tipo: string): string {
-    const high = ['MORA_VENCIDA', 'FUGA_POSIBLE', 'SUSCRIPTOR_SUSPENDIDO'];
-    const medium = ['CONSUMO_ANOMALO', 'MEDIDOR_SIN_LECTURA'];
-    if (high.includes(tipo)) return 'high';
-    if (medium.includes(tipo)) return 'medium';
-    return 'low';
-  }
-
-  getAlertaIcon(tipo: string): string {
-    const icons: Record<string, string> = {
-      CONSUMO_ANOMALO: 'trending_up',
-      MORA_VENCIDA: 'alarm_off',
-      MEDIDOR_SIN_LECTURA: 'speed',
-      FUGA_POSIBLE: 'water_damage',
-      SUSCRIPTOR_SUSPENDIDO: 'block',
-      MANTENIMIENTO: 'build'
-    };
-    return icons[tipo] || 'warning';
+  private createRevenueChart() {
+    if (!this.revenueRef) return;
+    new Chart(this.revenueRef.nativeElement, {
+      type: 'bar',
+      data: {
+        labels: this.monthlyLabels,
+        datasets: [
+          { label: 'Facturado', data: this.monthlyInvoiced, backgroundColor: '#bfdbfe', borderRadius: 6 },
+          { label: 'Cobrado', data: this.monthlyPaid, backgroundColor: '#3b82f6', borderRadius: 6 }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { labels: { usePointStyle: true, pointStyle: 'circle', padding: 16 } } },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 12 } } },
+          y: { grid: { color: '#f1f5f9' }, ticks: { color: '#94a3b8', font: { size: 12 }, callback: (v) => `$${v}` } }
+        }
+      }
+    });
   }
 }

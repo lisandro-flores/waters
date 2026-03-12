@@ -1,372 +1,157 @@
-import { Component, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 
 @Component({
   selector: 'app-login',
+  standalone: false,
   template: `
-    <div class="login-wrapper">
-      <div class="login-split-left">
-        <div class="left-overlay"></div>
-        <div class="left-content animate-in-left">
-          <div class="logo-large">
-            <mat-icon>water_drop</mat-icon>
+    <div class="min-h-screen flex bg-gradient-to-br from-[#0d2137] via-[#0e3a6b] to-[#1a6fa8]">
+      <!-- Left visual panel -->
+      <div class="hidden lg:flex flex-1 flex-col items-center justify-center p-12 text-white">
+        <div class="max-w-md">
+          <div class="w-20 h-20 rounded-3xl bg-white/20 backdrop-blur flex items-center justify-center mb-8 shadow-2xl">
+            <svg xmlns="http://www.w3.org/2000/svg" class="text-white" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>
           </div>
-          <h1 class="welcome-title">AguaGestión</h1>
-          <p class="welcome-subtitle">Plataforma inteligente para la administración y control de sistemas de agua potable comunitaria.</p>
-          <div class="features-list">
-            <div class="feature-item"><mat-icon>check_circle</mat-icon> <span>Toma de lecturas en tiempo real</span></div>
-            <div class="feature-item"><mat-icon>check_circle</mat-icon> <span>Facturación automatizada</span></div>
-            <div class="feature-item"><mat-icon>check_circle</mat-icon> <span>Gestión de medidores y suscriptores</span></div>
+          <h1 class="text-5xl mb-4" style="font-weight: 800; line-height: 1.1">
+            Gestión<br>de Agua<br>
+            <span class="text-sky-300">Inteligente</span>
+          </h1>
+          <p class="text-white/70 text-lg leading-relaxed">
+            Administra suscriptores, medidores, lecturas y facturación de tu sistema de agua potable en un solo lugar.
+          </p>
+          <div class="mt-10 grid grid-cols-3 gap-4">
+            <div class="bg-white/10 rounded-2xl p-4 backdrop-blur">
+              <div class="text-2xl text-sky-300 font-bold">225+</div>
+              <div class="text-sm text-white/60 mt-0.5">Suscriptores</div>
+            </div>
+            <div class="bg-white/10 rounded-2xl p-4 backdrop-blur">
+              <div class="text-2xl text-sky-300 font-bold">214</div>
+              <div class="text-sm text-white/60 mt-0.5">Medidores activos</div>
+            </div>
+            <div class="bg-white/10 rounded-2xl p-4 backdrop-blur">
+              <div class="text-2xl text-sky-300 font-bold">87%</div>
+              <div class="text-sm text-white/60 mt-0.5">Tasa de cobro</div>
+            </div>
           </div>
         </div>
       </div>
-      
-      <div class="login-split-right animate-in-right">
-        <div class="login-form-container">
-          <div class="mobile-branding">
-            <div class="logo-small"><mat-icon>water_drop</mat-icon></div>
-            <h2>AguaGestión</h2>
-          </div>
-          
-          <div class="login-header">
-            <h2>Bienvenido de nuevo</h2>
-            <p>Ingresa tus credenciales para acceder al sistema</p>
-          </div>
 
-          <form [formGroup]="loginForm" (ngSubmit)="onLogin()" class="login-form">
-            <mat-form-field appearance="outline" class="full-width custom-field">
-              <mat-label>Correo electrónico</mat-label>
-              <input matInput autoFocus type="email" formControlName="email" autocomplete="email" placeholder="ejemplo@correo.com" />
-              <mat-icon matPrefix color="primary">email</mat-icon>
-              <mat-error *ngIf="loginForm.get('email')?.hasError('required')">El correo es requerido</mat-error>
-              <mat-error *ngIf="loginForm.get('email')?.hasError('email')">Correo inválido</mat-error>
-            </mat-form-field>
+      <!-- Right login panel -->
+      <div class="flex-1 lg:max-w-[480px] flex items-center justify-center p-6">
+        <div class="w-full max-w-sm">
+          <div class="bg-white rounded-3xl shadow-2xl p-8">
+            <!-- Logo mobile -->
+            <div class="flex items-center gap-3 mb-8 lg:hidden">
+              <div class="w-10 h-10 rounded-xl bg-sky-600 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="text-white" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>
+              </div>
+              <span class="text-2xl text-gray-900 font-bold">Waters</span>
+            </div>
 
-            <mat-form-field appearance="outline" class="full-width custom-field">
-              <mat-label>Contraseña</mat-label>
-              <input matInput [type]="showPassword ? 'text' : 'password'" formControlName="password" autocomplete="current-password" placeholder="••••••••" />
-              <mat-icon matPrefix color="primary">lock</mat-icon>
-              <button mat-icon-button matSuffix type="button" tabindex="-1" (click)="showPassword = !showPassword">
-                <mat-icon>{{ showPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+            <h2 class="text-gray-900 mb-1 font-bold text-xl">Iniciar sesión</h2>
+            <p class="text-gray-500 text-sm mb-6">Accede a tu panel de administración</p>
+
+            <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="space-y-4">
+              <div>
+                <label class="block text-sm text-gray-700 mb-1.5 font-medium">Correo electrónico</label>
+                <input type="email" formControlName="email"
+                       placeholder="usuario@waters.com"
+                       class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent bg-slate-50" />
+              </div>
+              <div>
+                <label class="block text-sm text-gray-700 mb-1.5 font-medium">Contraseña</label>
+                <div class="relative">
+                  <input [type]="showPassword ? 'text' : 'password'" formControlName="password"
+                         placeholder="••••••••"
+                         class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent bg-slate-50 pr-10" />
+                  <button type="button" (click)="showPassword = !showPassword"
+                          class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700">
+                    <!-- Eye icon -->
+                    <svg *ngIf="!showPassword" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
+                    <svg *ngIf="showPassword" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div *ngIf="error" class="flex items-start gap-2 bg-red-50 text-red-700 text-sm rounded-xl px-4 py-3">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" class="mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+                <span>{{error}}</span>
+              </div>
+
+              <button type="submit" [disabled]="loading || loginForm.invalid"
+                      class="w-full bg-sky-600 hover:bg-sky-700 text-white rounded-xl py-3 text-sm font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
+                <svg *ngIf="loading" class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                {{loading ? 'Ingresando...' : 'Ingresar'}}
               </button>
-              <mat-error *ngIf="loginForm.get('password')?.hasError('required')">La contraseña es requerida</mat-error>
-            </mat-form-field>
+            </form>
 
-            <div class="forgot-password">
-              <a href="javascript:void(0)">¿Olvidaste tu contraseña?</a>
+            <!-- Demo credentials -->
+            <div class="mt-6 pt-5 border-t border-gray-100">
+              <p class="text-xs text-gray-400 text-center mb-3">Accesos de demostración</p>
+              <div class="grid grid-cols-2 gap-2">
+                <button (click)="fillAdmin()"
+                        class="text-xs bg-sky-50 hover:bg-sky-100 text-sky-700 rounded-xl py-2 px-3 transition-colors text-left">
+                  <span class="block font-semibold">Admin</span>
+                  <span class="text-sky-500">admin&#64;sistema.com</span>
+                </button>
+                <button (click)="fillOperator()"
+                        class="text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl py-2 px-3 transition-colors text-left">
+                  <span class="block font-semibold">Operador</span>
+                  <span class="text-emerald-500">operador&#64;sistema.com</span>
+                </button>
+              </div>
             </div>
-
-            <div *ngIf="errorMsg" class="error-msg animate-shake">
-              <mat-icon>error_outline</mat-icon>
-              <span>{{ errorMsg }}</span>
-            </div>
-
-            <button mat-flat-button color="primary" class="full-width login-btn" type="submit" [disabled]="loginForm.invalid || loading">
-              <span *ngIf="loading" class="spinner-container">
-                <mat-spinner diameter="24" color="accent"></mat-spinner> Autenticando...
-              </span>
-              <span *ngIf="!loading">Iniciar Sesión</span>
-            </button>
-          </form>
-
-          <div class="login-footer">
-            <p>&copy; 2026 LSoft Soluciones &mdash; v1.0</p>
           </div>
+
+          <p class="text-center text-white/40 text-xs mt-6">
+            &copy; 2025 Waters — Sistema de Gestión de Agua Potable
+          </p>
         </div>
       </div>
     </div>
-  `,
-  styles: [`
-    :host {
-      display: block;
-      height: 100vh;
-      width: 100vw;
-      background: #f5f7fa;
-      overflow: hidden;
-    }
-
-    .login-wrapper {
-      display: flex;
-      height: 100%;
-      width: 100%;
-    }
-
-    /* Left side (Branding/Image) */
-    .login-split-left {
-      flex: 1.2;
-      position: relative;
-      background: linear-gradient(135deg, #004878 0%, #0078a9 40%, #26a8d0 100%);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      padding: 0 10%;
-      color: white;
-      overflow: hidden;
-    }
-    
-    .left-overlay {
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-      z-index: 1;
-    }
-
-    .left-content {
-      position: relative;
-      z-index: 2;
-    }
-
-    .logo-large {
-      width: 80px; height: 80px;
-      background: rgba(255, 255, 255, 0.15);
-      backdrop-filter: blur(10px);
-      border-radius: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 2rem;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-    }
-    .logo-large mat-icon {
-      font-size: 48px; width: 48px; height: 48px;
-      color: #fff;
-    }
-
-    .welcome-title {
-      font-size: 3.5rem;
-      font-weight: 800;
-      margin: 0 0 1rem;
-      line-height: 1.1;
-      letter-spacing: -1px;
-    }
-
-    .welcome-subtitle {
-      font-size: 1.2rem;
-      line-height: 1.6;
-      opacity: 0.9;
-      margin-bottom: 3rem;
-      max-width: 450px;
-      font-weight: 300;
-    }
-
-    .features-list {
-      display: flex;
-      flex-direction: column;
-      gap: 1.2rem;
-    }
-    .feature-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-size: 1.1rem;
-      opacity: 0.95;
-    }
-    .feature-item mat-icon {
-      color: #81d4fa;
-    }
-
-    /* Right side (Form) */
-    .login-split-right {
-      flex: 1;
-      background: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem;
-      position: relative;
-    }
-
-    .login-form-container {
-      width: 100%;
-      max-width: 420px;
-    }
-
-    .mobile-branding {
-      display: none;
-      text-align: center;
-      margin-bottom: 2rem;
-    }
-    .logo-small {
-      width: 64px; height: 64px;
-      margin: 0 auto 1rem;
-      border-radius: 16px;
-      background: linear-gradient(135deg, #0078a9, #26a8d0);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-    }
-    .logo-small mat-icon { font-size: 32px; width: 32px; height: 32px; }
-    .mobile-branding h2 {
-      margin: 0; color: #004878; font-weight: 700; font-size: 24px;
-    }
-
-    .login-header {
-      margin-bottom: 2.5rem;
-    }
-    .login-header h2 {
-      font-size: 2rem;
-      font-weight: 700;
-      color: #1a202c;
-      margin: 0 0 0.5rem;
-    }
-    .login-header p {
-      color: #718096;
-      margin: 0;
-      font-size: 1.05rem;
-    }
-
-    .custom-field {
-      margin-bottom: 0.5rem;
-    }
-    ::ng-deep .custom-field .mat-mdc-text-field-wrapper {
-      background-color: #f8fafc !important;
-    }
-    ::ng-deep .custom-field .mat-mdc-form-field-focus-overlay {
-      background-color: transparent !important;
-    }
-
-    .forgot-password {
-      text-align: right;
-      margin-top: -10px;
-      margin-bottom: 24px;
-    }
-    .forgot-password a {
-      color: #0078a9;
-      text-decoration: none;
-      font-size: 0.9rem;
-      font-weight: 500;
-      transition: color 0.2s;
-    }
-    .forgot-password a:hover {
-      color: #004878;
-      text-decoration: underline;
-    }
-
-    .login-btn {
-      height: 52px;
-      font-size: 1.1rem;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      border-radius: 10px;
-      margin-top: 10px;
-      box-shadow: 0 4px 14px rgba(0, 120, 169, 0.3);
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .login-btn:hover:not([disabled]) {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(0, 120, 169, 0.4);
-    }
-    .spinner-container {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-    }
-
-    .error-msg {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      color: #e53e3e;
-      background: #fff5f5;
-      padding: 12px 16px;
-      border-radius: 8px;
-      border-left: 4px solid #e53e3e;
-      margin-bottom: 20px;
-      font-size: 0.95rem;
-    }
-
-    .login-footer {
-      margin-top: 3rem;
-      text-align: center;
-      color: #a0aec0;
-      font-size: 0.85rem;
-    }
-
-    /* Animations */
-    .animate-in-left {
-      animation: slideInLeft 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    }
-    .animate-in-right {
-      animation: fadeIn 0.8s ease-out forwards;
-    }
-    .animate-shake {
-      animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
-    }
-
-    @keyframes slideInLeft {
-      from { opacity: 0; transform: translateX(-30px); }
-      to { opacity: 1; transform: translateX(0); }
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes shake {
-      10%, 90% { transform: translate3d(-1px, 0, 0); }
-      20%, 80% { transform: translate3d(2px, 0, 0); }
-      30%, 50%, 70% { transform: translate3d(-3px, 0, 0); }
-      40%, 60% { transform: translate3d(3px, 0, 0); }
-    }
-
-    /* Responsive Design */
-    @media (max-width: 900px) {
-      .login-split-left { display: none; }
-      .login-split-right {
-        background: #f5f7fa;
-        padding: 1.5rem;
-      }
-      .login-form-container {
-        background: white;
-        padding: 2.5rem 2rem;
-        border-radius: 20px;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
-      }
-      .mobile-branding { display: block; }
-      .login-header { text-align: center; }
-    }
-  `]
-
+  `
 })
-export class LoginComponent implements OnInit {
-  loginForm!: FormGroup;
-  loading = false;
+export class LoginComponent {
+  loginForm: FormGroup;
   showPassword = false;
-  errorMsg = '';
+  loading = false;
+  error = '';
 
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
     private router: Router
-  ) {}
-
-  ngOnInit(): void {
+  ) {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
       password: ['', Validators.required]
     });
-
-    if (this.authService.isAuthenticated()) {
-      this.router.navigate(['/dashboard']);
-    }
   }
 
-  onLogin(): void {
+  fillAdmin(): void {
+    this.loginForm.patchValue({ email: 'admin@sistema.com', password: 'password' });
+  }
+
+  fillOperator(): void {
+    this.loginForm.patchValue({ email: 'operador@sistema.com', password: 'password' });
+  }
+
+  onSubmit(): void {
     if (this.loginForm.invalid) return;
+    this.error = '';
     this.loading = true;
-    this.errorMsg = '';
 
     this.authService.login(this.loginForm.value).subscribe({
-      next: () => this.router.navigate(['/dashboard']),
+      next: () => {
+        this.router.navigate(['/dashboard'], { replaceUrl: true });
+      },
       error: (err) => {
         this.loading = false;
-        this.errorMsg = err.status === 401
-          ? 'Credenciales inválidas'
-          : 'Error al conectar con el servidor';
+        this.error = err.status === 401
+          ? 'Credenciales incorrectas. Verifique su correo y contraseña.'
+          : 'Error al conectar con el servidor. Intente de nuevo.';
       }
     });
   }

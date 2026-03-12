@@ -3,17 +3,6 @@ import { CommonModule } from '@angular/common';
 import { RouterModule, Routes } from '@angular/router';
 import { RoleGuard } from '../../core/guards/role.guard';
 
-// Angular Material
-import { MatSidenavModule } from '@angular/material/sidenav';
-import { MatToolbarModule } from '@angular/material/toolbar';
-import { MatIconModule } from '@angular/material/icon';
-import { MatListModule } from '@angular/material/list';
-import { MatButtonModule } from '@angular/material/button';
-import { MatMenuModule } from '@angular/material/menu';
-import { MatDividerModule } from '@angular/material/divider';
-import { MatBadgeModule } from '@angular/material/badge';
-import { MatTooltipModule } from '@angular/material/tooltip';
-
 import { LayoutComponent } from './layout.component';
 
 const routes: Routes = [
@@ -50,20 +39,18 @@ const routes: Routes = [
         loadChildren: () => import('../pagos/pagos.module').then(m => m.PagosModule)
       },
       {
-        path: 'reportes',
-        loadChildren: () => import('../reportes/reportes.module').then(m => m.ReportesModule)
-      },
-      {
         path: 'tarifas',
         canActivate: [RoleGuard],
         data: { roles: ['ADMIN', 'SUPER_ADMIN'] },
         loadChildren: () => import('../tarifas/tarifas.module').then(m => m.TarifasModule)
       },
       {
-        path: 'configuracion',
-        canActivate: [RoleGuard],
-        data: { roles: ['ADMIN', 'SUPER_ADMIN'] },
-        loadChildren: () => import('../configuracion/configuracion.module').then(m => m.ConfiguracionModule)
+        path: 'comunidades',
+        loadChildren: () => import('../comunidades/comunidades.module').then(m => m.ComunidadesModule)
+      },
+      {
+        path: 'alertas',
+        loadChildren: () => import('../alertas/alertas.module').then(m => m.AlertasModule)
       },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]
@@ -74,10 +61,7 @@ const routes: Routes = [
   declarations: [LayoutComponent],
   imports: [
     CommonModule,
-    RouterModule.forChild(routes),
-    MatSidenavModule, MatToolbarModule, MatIconModule,
-    MatListModule, MatButtonModule, MatMenuModule,
-    MatDividerModule, MatBadgeModule, MatTooltipModule
+    RouterModule.forChild(routes)
   ]
 })
 export class LayoutModule {}

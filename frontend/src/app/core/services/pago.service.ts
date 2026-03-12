@@ -22,4 +22,8 @@ export class PagoService {
   getPorFactura(facturaId: number): Observable<Pago[]> {
     return this.http.get<Pago[]>(`${this.url}/factura/${facturaId}`);
   }
+
+  listar(): Observable<Pago[]> {
+    return this.http.get<Pago[]>(this.url);
+  }
 }
