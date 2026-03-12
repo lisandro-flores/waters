@@ -138,7 +138,7 @@ if [ "$START_FRONTEND" = true ]; then
 
   log "Iniciando frontend Angular..."
   cd "$FRONTEND_DIR"
-  npm start &
+  ng serve --port 4200 --host 0.0.0.0 --proxy-config proxy.conf.json < /dev/null > /tmp/aguapotable-frontend.log 2>&1 &
   FRONTEND_PID=$!
   echo "$FRONTEND_PID" > /tmp/aguapotable-frontend.pid
   ok "Frontend iniciado (PID $FRONTEND_PID)"

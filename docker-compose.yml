@@ -27,12 +27,16 @@ services:
       dockerfile: Dockerfile
     container_name: aguapotable-backend
     ports:
-      - "8080:8080"
+      - "8081:8081"
     environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: agua_potable
       DB_USER: postgres
       DB_PASS: postgres
+      PORT: 8081
+      NODE_ENV: production
       JWT_SECRET: "super-secret-key-para-produccion-minimo-32-chars!!"
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/agua_potable
     depends_on:
       postgres:
         condition: service_healthy

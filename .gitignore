@@ -8,8 +8,8 @@
 .env.*.local
 
 # ──── Backend ────
-backend/target/
-backend/.mvn/wrapper/maven-wrapper.jar
+backend/node_modules/
+backend/dist/
 backend/*.log
 *.log
 backend/.env

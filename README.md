@@ -15,13 +15,13 @@ cobros, alertas automáticas y reportes — todo de forma aislada por comunidad.
 └──────────────────────┬───────────────────────────────────────────────┘
                        │ HTTP + JWT
 ┌──────────────────────▼───────────────────────────────────────────────┐
-│               Spring Boot 3.2  (Puerto 8080)                          │
-│   Security → JwtAuthFilter → Controller → Service → Repository       │
-│   Scheduled alerts (@Scheduled)  |  OpenAPI → /swagger-ui.html       │
+│               NestJS 10  (Puerto 8081)                                │
+│   Auth Guard → Controller → Service → Repository (TypeORM)           │
+│   Scheduled tasks (@Cron)  |  Swagger → /swagger-ui.html             │
 └──────────────────────┬───────────────────────────────────────────────┘
-                       │ JPA / Flyway
+                       │ TypeORM
 ┌──────────────────────▼───────────────────────────────────────────────┐
-│             PostgreSQL 16  (Puerto 5432)                               │
+│             PostgreSQL 16  (Puerto 5433 en dev, 5432 en prod)         │
 │   Schema: comunidades, usuarios, suscriptores, medidores, lecturas    │
 │            facturas, pagos, tarifas, tarifa_rangos, alertas           │
 └──────────────────────────────────────────────────────────────────────┘
@@ -67,69 +67,107 @@ Un usuario `SUPER_ADMIN` puede operar entre comunidades.
 
 | Herramienta | Versión mínima |
 |---|---|
-| Java (JDK) | 17 |
-| Maven | 3.9+ |
-| Node.js | 18+ |
-| Angular CLI | 17 |
-| PostgreSQL | 15+ |
-| Docker + Compose | 24+ (opcional) |
+| Node.js | 20+ |
+| npm | 10+ |
+| PostgreSQL | 16+ |
+| Docker + Compose | 24+ (para dev: solo BD) |
 
 ---
 
-## Inicio rápido con Docker
+## Inicio rápido (desarrollo)
 
 ```bash
 # Clonar / acceder al directorio del proyecto
 cd AguaPotable
 
-# Levantar toda la pila (DB + Backend + Frontend)
-docker compose up --build
+# Levantar solo PostgreSQL en Docker
+docker compose -f docker-compose.dev.yml up -d postgres
+
+# Esperar 5-10s a que PostgreSQL esté listo
+# Instalar dependencias
+cd backend && npm install && cd ..
+cd frontend && npm install && cd ..
+
+# Terminal 1: Iniciar backend NestJS (watch mode)
+cd backend
+DB_HOST=localhost DB_PORT=5433 DB_USER=postgres DB_PASS=postgres \
+  JWT_SECRET="dev-secret-key-para-desarrollo-local-32chars!!" \
+  npm run start:dev
+
+# Terminal 2: Iniciar frontend Angular
+cd frontend
+npm start
 
 # Acceder a:
 #   Frontend:  http://localhost:4200
-#   Backend:   http://localhost:8080
-#   Swagger:   http://localhost:8080/swagger-ui.html
+#   Backend:   http://localhost:8081
+#   Swagger:   http://localhost:8081/swagger-ui.html
+#   pgAdmin:   http://localhost:5050 (admin@local.dev / admin123)
 ```
 
-> El primer arranque puede tardar varios minutos mientras se construyen las imágenes.
+**O usar el script automatizado:**
+```bash
+./start-dev.sh                  # Levanta todo
+./start-dev.sh --no-frontend    # Solo backend y DB
+./start-dev.sh --stop           # Detiene todo
+```
 
 ---
 
-## Inicio manual (desarrollo)
+## Desarrollo en detalle
 
-### 1. Base de datos
+### Base de datos (Docker)
 
 ```bash
-# Crear la base de datos en PostgreSQL local
-psql -U postgres -c "CREATE DATABASE agua_potable;"
+# Levantar solo PostgreSQL (dev)
+docker compose -f docker-compose.dev.yml up -d postgres
+
+# Esperar a que esté listo (healthcheck automático)
+# Verificar:
+docker ps --filter name=aguapotable-dev-db
 ```
 
-### 2. Backend
+### Backend (NestJS)
 
 ```bash
 cd backend
+npm install
 
-# Configurar variables de entorno (o editar application.yml)
+# Variables de entorno requeridas:
+export DB_HOST=localhost
+export DB_PORT=5433
 export DB_USER=postgres
 export DB_PASS=postgres
-export JWT_SECRET="super-secret-key-para-produccion-minimo-32-chars!!"
+export DB_NAME=agua_potable
+export JWT_SECRET="dev-secret-key-para-desarrollo-local-32chars!!"
+export NODE_ENV=development
+export PORT=8081
 
-# Compilar y ejecutar
-mvn spring-boot:run
+# Modo desarrollo (watch + hot reload)
+npm run start:dev
+
+# Modo compilado
+npm run build
+node dist/main
 ```
 
-Flyway ejecutará automáticamente `V1__init_schema.sql` y `V2__seed_data.sql`
+TypeORM ejecutará automáticamente las migraciones en `db/migration/` 
 al arrancar por primera vez.
 
-### 3. Frontend
+### Frontend (Angular)
 
 ```bash
 cd frontend
 npm install
-ng serve          # http://localhost:4200
+
+# Desarrollo (con proxy a http://localhost:8081)
+npm start                  # equiv: ng serve --port 4200 --proxy-config proxy.conf.json
+
+# Producción
+npm run build
 ```
 
-El proxy en `proxy.conf.json` redirige `/api` a `localhost:8080`.
+El proxy en `proxy.conf.json` redirige `/api` a `http://localhost:8081`.
 
 ---
 
@@ -150,10 +188,14 @@ El proxy en `proxy.conf.json` redirige `/api` a `localhost:8080`.
 
 | Variable | Descripción | Defecto (dev) |
 |---|---|---|
-| `SPRING_DATASOURCE_URL` | URL JDBC de PostgreSQL | `jdbc:postgresql://localhost:5432/agua_potable` |
+| `DB_HOST` | Host PostgreSQL | `localhost` |
+| `DB_PORT` | Puerto PostgreSQL | `5433` (dev) / `5432` (prod) |
+| `DB_NAME` | Nombre de la DB | `agua_potable` |
 | `DB_USER` | Usuario PostgreSQL | `postgres` |
 | `DB_PASS` | Contraseña PostgreSQL | `postgres` |
-| `JWT_SECRET` | Clave HMAC-SHA256 (≥32 chars) | (ver application.yml) |
+| `JWT_SECRET` | Clave HMAC-SHA256 (≥32 chars) | `dev-secret-key-para-desarrollo-local-32chars!!` |
+| `NODE_ENV` | Ambiente | `development` |
+| `PORT` | Puerto de NestJS | `8081` |
 
 ---
 
@@ -162,20 +204,24 @@ El proxy en `proxy.conf.json` redirige `/api` a `localhost:8080`.
 La documentación interactiva está disponible en:
 
 ```
-http://localhost:8080/swagger-ui.html
+http://localhost:8081/swagger-ui.html
 ```
 
-Endpoints principales:
+Endpoints principales (v1 en `/api/v1`):
 
 | Método | Ruta | Descripción |
 |---|---|---|
 | `POST` | `/api/v1/auth/login` | Obtener JWT |
 | `GET` | `/api/v1/suscriptores` | Listar suscriptores (paginado) |
+| `POST` | `/api/v1/suscriptores` | Crear suscriptor |
+| `GET` | `/api/v1/medidores` | Listar medidores |
 | `POST` | `/api/v1/lecturas` | Registrar lectura mensual |
-| `POST` | `/api/v1/facturacion/generar` | Generar factura individual |
+| `POST` | `/api/v1/facturacion/generar/:lecturaId` | Generar factura individual |
 | `POST` | `/api/v1/facturacion/generar-masivo` | Facturación masiva por período |
+| `POST` | `/api/v1/pagos` | Registrar pago |
 | `GET` | `/api/v1/reportes/dashboard` | KPIs del dashboard |
 | `GET` | `/api/v1/reportes/morosidad` | Reporte de cuentas morosas |
+| `GET` | `/api/v1/reportes/recaudacion-mensual` | Recaudación últimos 12 meses |
 
 ---
 
@@ -185,21 +231,24 @@ Endpoints principales:
 AguaPotable/
 ├── backend/
 │   ├── Dockerfile
-│   ├── pom.xml
-│   └── src/main/
-│       ├── java/com/lsoft/aguapotable/
-│       │   ├── config/          # SecurityConfig
-│       │   ├── domain/
-│       │   │   ├── entity/      # 9 entidades JPA
-│       │   │   ├── enums/       # 8 enumeraciones
-│       │   │   └── repository/  # 9 repositorios
-│       │   ├── dto/             # DTOs de request/response
-│       │   ├── exception/       # GlobalExceptionHandler
-│       │   ├── security/        # JWT + filtros
-│       │   └── service/         # Lógica de negocio
-│       └── resources/
-│           ├── application.yml
-│           └── db/migration/    # V1 schema + V2 seed
+│   ├── package.json
+│   ├── nest-cli.json
+│   ├── tsconfig.json
+│   └── src/
+│       ├── main.ts              # Bootstrap NestJS
+│       ├── app.module.ts        # Root Module + TypeORM
+│       ├── auth/                # JWT estrategy + guards
+│       ├── comunidad/           # Módulo + entity + service
+│       ├── suscriptor/          # CRUD suscriptores
+│       ├── medidor/             # CRUD medidores
+│       ├── lectura/             # Lecturas mensuales
+│       ├── facturacion/         # Generación de facturas
+│       ├── pago/                # Registro de pagos
+│       ├── tarifa/              # Configuración de tarifas
+│       ├── reporte/             # Dashboard + morosidad
+│       ├── alerta/              # Alertas automáticas (@Cron)
+│       ├── common/              # Filters, guards, decorators
+│       └── db/migration/        # TypeORM migrations
 ├── frontend/
 │   ├── Dockerfile
 │   ├── nginx.conf
@@ -219,7 +268,11 @@ AguaPotable/
 │   │   │   └── configuracion/
 │   │   └── shared/             # ForbiddenComponent
 │   └── package.json
-└── docker-compose.yml
+├── docker-compose.yml           # Producción: Backend + Frontend + DB
+├── docker-compose.dev.yml       # Desarrollo: Solo DB
+├── .env.dev                     # Variables para dev
+├── start-dev.sh                 # Script automatizado
+└── README.md
 ```
 
 ---
@@ -242,14 +295,16 @@ AguaPotable/
 ## Tecnologías utilizadas
 
 **Backend**
-- Spring Boot 3.2.3 · Spring Security · Spring Data JPA
-- JWT (jjwt 0.12.5) · Flyway · MapStruct · Lombok
-- SpringDoc OpenAPI 2 · PostgreSQL 16
+- NestJS 10 · TypeScript · TypeORM
+- Passport.js + JWT · @nestjs/schedule (@Cron para alertas)
+- Swagger/OpenAPI · PostgreSQL 16
+- class-validator, class-transformer · bcryptjs
 
 **Frontend**
-- Angular 17 · Angular Material 17 (Indigo/Pink)
-- RxJS 7.8 · Chart.js + ng2-charts
-- Lazy loading por módulo · Angular Router guards
+- Angular 17 · TypeScript · RxJS 7.8
+- Angular Material 17 (Indigo/Pink theme)
+- Chart.js + ng2-charts (gráficos)
+- Lazy loading por módulo · Auth guards + JWT interceptor
 
 ---
 
